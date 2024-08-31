@@ -21,6 +21,7 @@ if (!fs.existsSync(uploadDir)) {
 
 // Middleware to parse JSON
 app.use(express.json());
+app.use(express.urlencoded({extended : false}))
 
 // Middleware to parse form-data (for file uploads)
 const storage = multer.diskStorage({
