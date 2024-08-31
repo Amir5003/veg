@@ -1,6 +1,7 @@
 const User = require('../models/userModel');
 const asyncHandler = require('express-async-handler');
 const generateToken = require('../utils/generateToken');
+const TokenBlacklist = require('../models/tokenBlacklistModel');
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
@@ -55,7 +56,27 @@ const authUser = asyncHandler(async (req, res) => {
     }
 });
 
+// Logout User
+
+const logout = asyncHandler(async (req, res, next) => {
+    const token = req.headers?.authorization?.split(' ')[1];
+    
+    // Add token to blacklist
+    await TokenBlacklist.create({ token });
+
+    res.cookie("token", null, {
+        expires: new Date(Date.now()),
+        httpOnly: true,
+    });
+
+    res.status(200).json({
+        success: true,
+        message: "Logged Out",
+    });
+});
+
 module.exports = {
     registerUser,
     authUser,
+    logout,
 };

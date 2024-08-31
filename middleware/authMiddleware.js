@@ -1,6 +1,8 @@
+// middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const User = require('../models/userModel');
+const TokenBlacklist = require('../models/tokenBlacklistModel');
 
 const protect = asyncHandler(async (req, res, next) => {
     let token;
@@ -9,8 +11,17 @@ const protect = asyncHandler(async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
 
+            // Check if token is blacklisted
+            const isBlacklisted = await TokenBlacklist.findOne({ token });
+            if (isBlacklisted) {
+                res.status(401);
+                throw new Error('Token has been blacklisted');
+            }
+
+            // Verify token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+            // Get user from token
             req.user = await User.findById(decoded.id).select('-password');
 
             next();
@@ -28,3 +39,4 @@ const protect = asyncHandler(async (req, res, next) => {
 });
 
 module.exports = { protect };
+
