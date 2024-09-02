@@ -6,6 +6,7 @@ const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const cartRoutes = require('./routes/cartRoutes');
+const orderRoutes = require('./routes/orderRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const multer = require('multer');
 
@@ -41,6 +42,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', upload.single('image'), productRoutes);
 app.use('/uploads', express.static('uploads'));
 app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
 
 
 // Error Handler Middleware
