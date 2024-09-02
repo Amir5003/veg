@@ -20,6 +20,19 @@ const userSchema = mongoose.Schema(
             type: Boolean,
             default: false, // Initially, the user is not verified
         },
+        cart: [
+            {
+                product: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'Product',
+                },
+                quantity: {
+                    type: Number,
+                    required: true,
+                    default: 1,
+                },
+            },
+        ],
     },
     {
         timestamps: true,
