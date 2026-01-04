@@ -115,15 +115,18 @@ const authUser = asyncHandler(async (req, res) => {
             throw new Error('Please verify your email before logging in.');
         }
 
-        // Check if vendor is approved (if vendor role)
-        if (user.role === 'vendor' && user.vendorProfile) {
-            if (!user.vendorProfile.isApproved) {
-                res.status(403);
-                throw new Error('Your vendor account is pending approval. Please wait for admin confirmation.');
-            }
-            if (user.vendorProfile.isSuspended) {
+        // For vendors - check if they have a profile and approval status
+        let vendorStatus = null;
+        if (user.role === 'vendor') {
+            if (!user.vendorProfile) {
+                vendorStatus = 'SETUP_REQUIRED'; // Vendor needs to complete setup
+            } else if (user.vendorProfile.isSuspended) {
                 res.status(403);
                 throw new Error('Your vendor account has been suspended.');
+            } else if (!user.vendorProfile.isApproved) {
+                vendorStatus = 'PENDING_APPROVAL'; // Vendor is waiting for admin approval
+            } else {
+                vendorStatus = 'APPROVED'; // Vendor is fully approved
             }
         }
 
@@ -138,6 +141,7 @@ const authUser = asyncHandler(async (req, res) => {
                     role: user.role,
                     token: generateToken(user._id),
                     vendorSlug: user.role === 'vendor' && user.vendorProfile ? user.vendorProfile.storeSlug : null,
+                    vendorStatus: vendorStatus, // SETUP_REQUIRED, PENDING_APPROVAL, or APPROVED
                 }
             )
         );
@@ -351,38 +355,71 @@ const registerVendorProfile = asyncHandler(async (req, res) => {
         throw new Error('Only users with vendor role can create vendor profile');
     }
 
-    // Check if vendor already exists
-    if (user.vendorProfile) {
-        res.status(400);
-        throw new Error('Vendor profile already exists for this user');
-    }
-
     // Validate required fields
     if (!businessName || !businessLicense || !phoneNumber || !address) {
         res.status(400);
         throw new Error('Please provide all required vendor details: businessName, businessLicense, phoneNumber, address');
     }
 
-    // Generate unique store slug
-    const storeSlug = generateSlug(businessName);
+    let vendor;
 
-    // Create vendor profile
-    const vendor = await Vendor.create({
-        user: userId,
-        businessName,
-        businessDescription: businessDescription || '',
-        businessLicense,
-        phoneNumber,
-        address,
-        storeSlug,
-        isApproved: false, // Require admin approval
-        isSuspended: false,
-        commissionPercentage: 10, // Default 10% commission
-    });
+    // Check if vendor already exists
+    if (user.vendorProfile) {
+        // Update existing vendor profile
+        vendor = await Vendor.findById(user.vendorProfile);
+        
+        if (!vendor) {
+            // Vendor record doesn't exist, create new one
+            const storeSlug = generateSlug(businessName);
+            vendor = await Vendor.create({
+                user: userId,
+                businessName,
+                businessDescription: businessDescription || '',
+                businessLicense,
+                phoneNumber,
+                address,
+                storeSlug,
+                isApproved: false,
+                isSuspended: false,
+                commissionPercentage: 10,
+            });
+            user.vendorProfile = vendor._id;
+            await user.save();
+        } else {
+            // Update existing vendor profile
+            vendor.businessName = businessName;
+            vendor.businessDescription = businessDescription || '';
+            vendor.businessLicense = businessLicense;
+            vendor.phoneNumber = phoneNumber;
+            vendor.address = address;
+            
+            // Regenerate slug if business name changed
+            if (!vendor.storeSlug || vendor.businessName !== businessName) {
+                vendor.storeSlug = generateSlug(businessName);
+            }
+            
+            await vendor.save();
+        }
+    } else {
+        // Create new vendor profile
+        const storeSlug = generateSlug(businessName);
+        vendor = await Vendor.create({
+            user: userId,
+            businessName,
+            businessDescription: businessDescription || '',
+            businessLicense,
+            phoneNumber,
+            address,
+            storeSlug,
+            isApproved: false, // Require admin approval
+            isSuspended: false,
+            commissionPercentage: 10, // Default 10% commission
+        });
 
-    // Link vendor to user
-    user.vendorProfile = vendor._id;
-    await user.save();
+        // Link vendor to user
+        user.vendorProfile = vendor._id;
+        await user.save();
+    }
 
     // Notify admin about new vendor registration
     const transporter = nodemailer.createTransport({
@@ -430,6 +467,50 @@ const registerVendorProfile = asyncHandler(async (req, res) => {
     );
 });
 
+// @desc    Get vendor status
+// @route   GET /api/auth/vendor-status
+// @access  Private (Vendor only)
+const getVendorStatus = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id).populate('vendorProfile');
+
+    if (user.role !== 'vendor') {
+        res.status(403);
+        throw new Error('Only vendors can access this resource');
+    }
+
+    let status = {
+        role: 'vendor',
+        vendorStatus: null,
+        hasProfile: false,
+        isApproved: false,
+        isSuspended: false,
+        message: '',
+    };
+
+    if (!user.vendorProfile) {
+        status.vendorStatus = 'SETUP_REQUIRED';
+        status.message = 'Please complete your vendor profile setup';
+    } else {
+        status.hasProfile = true;
+        if (user.vendorProfile.isSuspended) {
+            status.vendorStatus = 'SUSPENDED';
+            status.isSuspended = true;
+            status.message = `Your vendor account has been suspended. Reason: ${user.vendorProfile.suspensionReason || 'Not provided'}`;
+        } else if (!user.vendorProfile.isApproved) {
+            status.vendorStatus = 'PENDING_APPROVAL';
+            status.message = 'Your vendor profile is pending admin approval. Please wait for confirmation.';
+        } else {
+            status.vendorStatus = 'APPROVED';
+            status.isApproved = true;
+            status.message = 'Your vendor profile is approved';
+        }
+    }
+
+    res.status(200).json(
+        sendSuccess(200, 'Vendor status retrieved', status)
+    );
+});
+
 module.exports = {
     registerUser,
     authUser,
@@ -437,4 +518,5 @@ module.exports = {
     verifyEmail,
     resendVerificationCode,
     registerVendorProfile,
+    getVendorStatus,
 };

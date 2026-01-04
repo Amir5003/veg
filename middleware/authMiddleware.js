@@ -46,7 +46,7 @@ const protect = asyncHandler(async (req, res, next) => {
     }
 });
 
-// Middleware to check if user is a vendor
+// Middleware to check if user is a vendor (with approval check)
 const vendorOnly = asyncHandler(async (req, res, next) => {
     if (req.user.role !== 'vendor') {
         res.status(403);
@@ -70,6 +70,22 @@ const vendorOnly = asyncHandler(async (req, res, next) => {
         throw new Error('Your vendor account is suspended');
     }
 
+    req.vendor = vendor;
+    next();
+});
+
+// Middleware to check if user is a vendor (allows pending approval)
+const vendorAccess = asyncHandler(async (req, res, next) => {
+    if (req.user.role !== 'vendor') {
+        res.status(403);
+        throw new Error('Only vendors can access this resource');
+    }
+
+    // Get vendor profile
+    const vendor = await Vendor.findOne({ user: req.user._id });
+    
+    // Allow access even if not approved or no profile yet
+    // The route handler can check isApproved and handle accordingly
     req.vendor = vendor;
     next();
 });
@@ -126,5 +142,5 @@ const vendorOwnsOrder = asyncHandler(async (req, res, next) => {
     next();
 });
 
-module.exports = { protect, vendorOnly, adminOnly, vendorOwnsProduct, vendorOwnsOrder };
+module.exports = { protect, vendorOnly, vendorAccess, adminOnly, vendorOwnsProduct, vendorOwnsOrder };
 
