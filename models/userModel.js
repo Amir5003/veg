@@ -47,6 +47,14 @@ const userSchema = mongoose.Schema(
             ref: 'Vendor',
             default: null,
         },
+        verificationCode: {
+            type: String,
+            default: null,
+        },
+        verificationCodeExpires: {
+            type: Date,
+            default: null,
+        },
     },
     {
         timestamps: true,
