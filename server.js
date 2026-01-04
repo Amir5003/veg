@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
@@ -17,6 +18,17 @@ dotenv.config();
 connectDB();
 
 const app = express();
+
+// CORS Configuration
+const corsOptions = {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 
 // Check if the uploads folder exists, if not, create it
 const uploadDir = path.join(__dirname, 'uploads');
