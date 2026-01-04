@@ -7,6 +7,9 @@ const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const storeRoutes = require('./routes/storeRoutes');
+const vendorRoutes = require('./routes/vendorRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const multer = require('multer');
 
@@ -41,8 +44,11 @@ const upload = multer({ storage });
 app.use('/api/auth', authRoutes);
 app.use('/api/products', upload.single('image'), productRoutes);
 app.use('/uploads', express.static('uploads'));
+app.use('/api/store', storeRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/vendor', vendorRoutes);
+app.use('/api/admin', adminRoutes);
 
 
 // Error Handler Middleware

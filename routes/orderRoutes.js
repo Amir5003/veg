@@ -5,13 +5,19 @@ const {
     getUserOrders,
     getOrderById,
     updateOrderStatus,
+    getVendorOrders,
+    updateVendorOrderStatus,
 } = require('../controllers/orderController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, vendorOnly } = require('../middleware/authMiddleware');
 
-// Define routes for order management
-router.route('/').post(protect, createOrder);
-router.route('/myorders').get(protect, getUserOrders);
-router.route('/orderbyid').post(protect, getOrderById);
-router.route('/status').post(protect, updateOrderStatus);
+// Customer routes
+router.post('/', protect, createOrder);
+router.get('/', protect, getUserOrders);
+router.get('/:id', protect, getOrderById);
+router.put('/:id', protect, updateOrderStatus);
+
+// Vendor routes
+router.get('/vendor/orders', protect, vendorOnly, getVendorOrders);
+router.put('/:id/vendor-status', protect, vendorOnly, updateVendorOrderStatus);
 
 module.exports = router;

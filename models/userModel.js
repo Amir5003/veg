@@ -20,11 +20,20 @@ const userSchema = mongoose.Schema(
             type: Boolean,
             default: false, // Initially, the user is not verified
         },
+        role: {
+            type: String,
+            enum: ['customer', 'vendor', 'admin'],
+            default: 'customer',
+        },
         cart: [
             {
                 product: {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: 'Product',
+                },
+                vendor: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'Vendor',
                 },
                 quantity: {
                     type: Number,
@@ -33,6 +42,11 @@ const userSchema = mongoose.Schema(
                 },
             },
         ],
+        vendorProfile: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Vendor',
+            default: null,
+        },
     },
     {
         timestamps: true,

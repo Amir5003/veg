@@ -2,21 +2,63 @@ const mongoose = require('mongoose');
 
 const orderSchema = mongoose.Schema(
     {
-        user: {
+        customer: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: 'User',
         },
-        orderItems: [
+        vendors: [
             {
-                name: { type: String, required: true },
-                quantity: { type: Number, required: true },
-                image: { type: String, required: true },
-                price: { type: Number, required: true },
-                product: {
+                vendor: {
                     type: mongoose.Schema.Types.ObjectId,
                     required: true,
-                    ref: 'Product',
+                    ref: 'Vendor',
+                },
+                items: [
+                    {
+                        name: { type: String, required: true },
+                        quantity: { type: Number, required: true },
+                        image: { type: String, required: true },
+                        price: { type: Number, required: true },
+                        product: {
+                            type: mongoose.Schema.Types.ObjectId,
+                            required: true,
+                            ref: 'Product',
+                        },
+                    },
+                ],
+                vendorSubtotal: {
+                    type: Number,
+                    required: true,
+                    default: 0.0,
+                },
+                commissionAmount: {
+                    type: Number,
+                    default: 0.0,
+                },
+                vendorEarnings: {
+                    type: Number,
+                    default: 0.0,
+                },
+                vendorStatus: {
+                    type: String,
+                    enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+                    default: 'pending',
+                },
+                vendorShippingAddress: {
+                    address: { type: String },
+                    city: { type: String },
+                    postalCode: { type: String },
+                    country: { type: String },
+                },
+                shippingPrice: {
+                    type: Number,
+                    default: 0.0,
+                },
+                tracking: {
+                    trackingNumber: String,
+                    carrier: String,
+                    estimatedDelivery: Date,
                 },
             },
         ],
@@ -69,8 +111,12 @@ const orderSchema = mongoose.Schema(
         },
         orderStatus: {
             type: String,
-            required: true,
-            default: 'Pending',
+            enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+            default: 'pending',
+        },
+        notes: {
+            type: String,
+            default: null,
         },
     },
     {
