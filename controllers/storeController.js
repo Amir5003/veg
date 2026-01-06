@@ -2,6 +2,68 @@ const asyncHandler = require('express-async-handler');
 const Vendor = require('../models/vendorModel');
 const Product = require('../models/productModel');
 const ShopReview = require('../models/shopReviewModel');
+const { buildSlugBase } = require('./authController');
+
+// @desc    List approved, active stores (Public)
+// @route   GET /api/store
+// @access  Public
+const listStores = asyncHandler(async (req, res) => {
+    const { search = '', page = 1, limit = 12 } = req.query;
+
+    const filter = {
+        isApproved: true,
+        isSuspended: false,
+        isActive: true,
+    };
+
+    if (search) {
+        filter.businessName = { $regex: search, $options: 'i' };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [stores, total] = await Promise.all([
+        Vendor.find(filter)
+            .select('businessName businessDescription storeSlug logo banner rating totalProducts totalReviews address')
+            .skip(skip)
+            .limit(parseInt(limit))
+            .sort({ createdAt: -1 }),
+        Vendor.countDocuments(filter),
+    ]);
+
+    res.json({
+        pagination: {
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(total / limit),
+            total,
+        },
+        stores,
+    });
+});
+
+// @desc    Validate store name (slug availability)
+// @route   GET /api/store/validate-name?name=
+// @access  Public
+const validateStoreName = asyncHandler(async (req, res) => {
+    const { name } = req.query;
+    if (!name) {
+        res.status(400);
+        throw new Error('Store name is required');
+    }
+
+    const slug = buildSlugBase(name);
+    if (!slug) {
+        res.status(400);
+        throw new Error('Invalid store name');
+    }
+
+    const existing = await Vendor.findOne({ storeSlug: slug });
+    if (existing) {
+        return res.status(409).json({ available: false, storeSlug: slug, message: 'Store name is already taken' });
+    }
+
+    return res.json({ available: true, storeSlug: slug, message: 'Store name is available' });
+});
 
 // @desc    Get vendor store by slug (Public)
 // @route   GET /api/store/:slug
@@ -302,6 +364,8 @@ const getMyStoreInfo = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+    listStores,
+    validateStoreName,
     getStoreBySlug,
     getStoreProducts,
     getStoreReviews,

@@ -8,13 +8,20 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { sendSuccess, sendError } = require('../utils/apiResponse');
 
-// Helper function to generate vendor slug
-const generateSlug = (businessName) => {
-    return businessName
+// Helper: base slug from business name (no random suffix)
+const buildSlugBase = (businessName) =>
+    businessName
         .toLowerCase()
+        .trim()
         .replace(/\s+/g, '-')
-        .replace(/[^\w-]/g, '')
-        + '-' + crypto.randomBytes(4).toString('hex');
+        .replace(/[^\w-]/g, '');
+
+// Helper: ensure slug uniqueness; throws if taken by another vendor
+const ensureSlugAvailable = async (storeSlug, currentVendorId = null) => {
+    const existing = await Vendor.findOne({ storeSlug });
+    if (existing && (!currentVendorId || existing._id.toString() !== currentVendorId.toString())) {
+        throw new Error('Store name is already taken');
+    }
 };
 
 // @desc    Register a new user (Customer or Vendor)
@@ -346,7 +353,20 @@ const resendVerificationCode = asyncHandler(async (req, res) => {
 // @access  Private (Verified Vendor User Only)
 const registerVendorProfile = asyncHandler(async (req, res) => {
     const userId = req.user._id;
-    const { businessName, businessDescription, businessLicense, phoneNumber, address } = req.body;
+    const { businessName, businessDescription, businessLicense, phoneNumber } = req.body;
+
+    // Handle address from multipart (may arrive as JSON string)
+    let address = req.body.address;
+    if (typeof address === 'string') {
+        try {
+            address = JSON.parse(address);
+        } catch (err) {
+            res.status(400);
+            throw new Error('Invalid address format');
+        }
+    }
+
+    const logoPath = req.file ? `/uploads/${req.file.filename}` : null;
 
     // Validate user is a vendor
     const user = await User.findById(userId);
@@ -370,7 +390,8 @@ const registerVendorProfile = asyncHandler(async (req, res) => {
         
         if (!vendor) {
             // Vendor record doesn't exist, create new one
-            const storeSlug = generateSlug(businessName);
+            const storeSlug = buildSlugBase(businessName) || 'store';
+            await ensureSlugAvailable(storeSlug);
             vendor = await Vendor.create({
                 user: userId,
                 businessName,
@@ -378,6 +399,7 @@ const registerVendorProfile = asyncHandler(async (req, res) => {
                 businessLicense,
                 phoneNumber,
                 address,
+                logo: logoPath,
                 storeSlug,
                 isApproved: false,
                 isSuspended: false,
@@ -392,17 +414,23 @@ const registerVendorProfile = asyncHandler(async (req, res) => {
             vendor.businessLicense = businessLicense;
             vendor.phoneNumber = phoneNumber;
             vendor.address = address;
+            if (logoPath) {
+                vendor.logo = logoPath;
+            }
             
-            // Regenerate slug if business name changed
+            // Regenerate slug if business name changed (ensure uniqueness)
             if (!vendor.storeSlug || vendor.businessName !== businessName) {
-                vendor.storeSlug = generateSlug(businessName);
+                const newSlug = buildSlugBase(businessName) || 'store';
+                await ensureSlugAvailable(newSlug, vendor._id);
+                vendor.storeSlug = newSlug;
             }
             
             await vendor.save();
         }
     } else {
         // Create new vendor profile
-        const storeSlug = generateSlug(businessName);
+        const storeSlug = buildSlugBase(businessName) || 'store';
+        await ensureSlugAvailable(storeSlug);
         vendor = await Vendor.create({
             user: userId,
             businessName,
@@ -410,6 +438,7 @@ const registerVendorProfile = asyncHandler(async (req, res) => {
             businessLicense,
             phoneNumber,
             address,
+            logo: logoPath,
             storeSlug,
             isApproved: false, // Require admin approval
             isSuspended: false,
@@ -512,6 +541,8 @@ const getVendorStatus = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+    buildSlugBase,
+    ensureSlugAvailable,
     registerUser,
     authUser,
     logout,
