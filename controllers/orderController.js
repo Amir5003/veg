@@ -85,12 +85,12 @@ const createOrder = asyncHandler(async (req, res) => {
             commissionAmount,
             commissionPercentage: vendor.commissionPercentage,
             vendorEarnings,
-            vendorStatus: 'PENDING',
+            vendorStatus: 'pending',
             vendorShippingAddress: shippingAddress,
             tracking: {
                 trackingNumber: null,
                 carrier: null,
-                status: 'NOT_SHIPPED',
+                status: 'not_shipped',
             },
         });
     }
@@ -106,7 +106,7 @@ const createOrder = asyncHandler(async (req, res) => {
         totalPrice: totalPrice + parseFloat(taxPrice) + parseFloat(shippingPrice),
         isPaid: true, // Assuming payment is already processed
         paidAt: Date.now(),
-        orderStatus: 'PENDING',
+        orderStatus: 'pending',
     });
 
     const createdOrder = await order.save();
@@ -242,8 +242,9 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         throw new Error('Order ID and status are required');
     }
 
-    const validStatuses = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-    if (!validStatuses.includes(orderStatus)) {
+    const normalizedStatus = orderStatus.toLowerCase();
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(normalizedStatus)) {
         res.status(400);
         throw new Error('Invalid order status');
     }
@@ -255,9 +256,9 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
         throw new Error('Order not found');
     }
 
-    order.orderStatus = orderStatus;
+    order.orderStatus = normalizedStatus;
 
-    if (orderStatus === 'DELIVERED') {
+    if (normalizedStatus === 'delivered') {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
     }
@@ -285,9 +286,10 @@ const getVendorOrders = asyncHandler(async (req, res) => {
     let query = { 'vendors.vendor': vendor };
 
     if (status) {
-        const validStatuses = ['PENDING', 'ACCEPTED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-        if (validStatuses.includes(status)) {
-            query['vendors.vendorStatus'] = status;
+        const normalized = status.toLowerCase();
+        const validStatuses = ['pending', 'processing', 'shipped', 'in_transit', 'delivered', 'cancelled'];
+        if (validStatuses.includes(normalized)) {
+            query['vendors.vendorStatus'] = normalized;
         }
     }
 
@@ -323,8 +325,9 @@ const updateVendorOrderStatus = asyncHandler(async (req, res) => {
         throw new Error('Order ID and vendor status are required');
     }
 
-    const validStatuses = ['PENDING', 'ACCEPTED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-    if (!validStatuses.includes(vendorStatus)) {
+    const normalizedVendorStatus = vendorStatus.toLowerCase();
+    const validStatuses = ['pending', 'processing', 'shipped', 'in_transit', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(normalizedVendorStatus)) {
         res.status(400);
         throw new Error('Invalid vendor order status');
     }
@@ -347,7 +350,7 @@ const updateVendorOrderStatus = asyncHandler(async (req, res) => {
     }
 
     // Update vendor order status
-    order.vendors[vendorOrderIndex].vendorStatus = vendorStatus;
+    order.vendors[vendorOrderIndex].vendorStatus = normalizedVendorStatus;
 
     if (trackingNumber) {
         order.vendors[vendorOrderIndex].tracking.trackingNumber = trackingNumber;
@@ -357,16 +360,18 @@ const updateVendorOrderStatus = asyncHandler(async (req, res) => {
         order.vendors[vendorOrderIndex].tracking.carrier = carrier;
     }
 
-    if (vendorStatus === 'SHIPPED') {
-        order.vendors[vendorOrderIndex].tracking.status = 'SHIPPED';
-    } else if (vendorStatus === 'DELIVERED') {
-        order.vendors[vendorOrderIndex].tracking.status = 'DELIVERED';
+    if (normalizedVendorStatus === 'shipped') {
+        order.vendors[vendorOrderIndex].tracking.status = 'shipped';
+    } else if (normalizedVendorStatus === 'in_transit') {
+        order.vendors[vendorOrderIndex].tracking.status = 'in_transit';
+    } else if (normalizedVendorStatus === 'delivered') {
+        order.vendors[vendorOrderIndex].tracking.status = 'delivered';
     }
 
     // Check if all vendors have delivered - then mark parent order as delivered
-    const allDelivered = order.vendors.every((v) => v.vendorStatus === 'DELIVERED');
+    const allDelivered = order.vendors.every((v) => v.vendorStatus === 'delivered');
     if (allDelivered) {
-        order.orderStatus = 'DELIVERED';
+        order.orderStatus = 'delivered';
         order.isDelivered = true;
         order.deliveredAt = Date.now();
     }

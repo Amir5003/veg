@@ -42,7 +42,7 @@ const orderSchema = mongoose.Schema(
                 },
                 vendorStatus: {
                     type: String,
-                    enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'],
+                    enum: ['pending', 'processing', 'shipped', 'in_transit', 'delivered', 'cancelled'],
                     default: 'pending',
                 },
                 vendorShippingAddress: {
@@ -123,6 +123,27 @@ const orderSchema = mongoose.Schema(
         timestamps: true,
     }
 );
+
+// Normalize status fields to lowercase before validation
+orderSchema.pre('validate', function (next) {
+    if (this.orderStatus) {
+        this.orderStatus = this.orderStatus.toLowerCase();
+    }
+
+    if (Array.isArray(this.vendors)) {
+        this.vendors = this.vendors.map((vendorOrder) => {
+            if (vendorOrder.vendorStatus) {
+                vendorOrder.vendorStatus = vendorOrder.vendorStatus.toLowerCase();
+            }
+            if (vendorOrder.tracking && vendorOrder.tracking.status) {
+                vendorOrder.tracking.status = vendorOrder.tracking.status.toLowerCase();
+            }
+            return vendorOrder;
+        });
+    }
+
+    next();
+});
 
 const Order = mongoose.model('Order', orderSchema);
 

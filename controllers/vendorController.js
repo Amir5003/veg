@@ -167,7 +167,7 @@ const updateVendorOrderStatus = asyncHandler(async (req, res) => {
     const { orderId } = req.params;
     const { status, trackingNumber, carrier, notes } = req.body;
 
-    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const validStatuses = ['pending', 'processing', 'shipped', 'in_transit', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) {
         res.status(400);
         throw new Error(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
