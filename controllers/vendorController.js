@@ -5,6 +5,7 @@ const Product = require('../models/productModel');
 const Order = require('../models/orderModel');
 const Wallet = require('../models/walletModel');
 const ShopReview = require('../models/shopReviewModel');
+const { sendSuccess } = require('../utils/apiResponse');
 
 // @desc    Get vendor profile
 // @route   GET /api/vendor/profile
@@ -99,27 +100,31 @@ const getVendorDashboard = asyncHandler(async (req, res) => {
         ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(2)
         : 0;
 
-    res.json({
-        vendor: {
-            id: vendor._id,
-            businessName: vendor.businessName,
-            isApproved: vendor.isApproved,
-            isActive: vendor.isActive,
-        },
-        stats: {
-            totalProducts,
-            totalOrders,
-            totalSales,
-            avgRating,
-            totalReviews: reviews.length,
-        },
-        wallet: {
-            balance: wallet.balance,
-            totalEarnings: wallet.totalEarnings,
-            totalCommissionPaid: wallet.totalCommissionPaid,
-        },
-        recentOrders,
-    });
+    res.status(200).json(
+        sendSuccess(200, 'Vendor dashboard fetched', {
+            vendor: {
+                id: vendor._id,
+                businessName: vendor.businessName,
+                storeSlug: vendor.storeSlug,
+                isApproved: vendor.isApproved,
+                isActive: vendor.isActive,
+            },
+            stats: {
+                totalProducts,
+                totalOrders,
+                totalSales,
+                avgRating,
+                totalReviews: reviews.length,
+                pendingOrders: 0,
+            },
+            wallet: {
+                balance: wallet.balance,
+                totalEarnings: wallet.totalEarnings,
+                totalCommissionPaid: wallet.totalCommissionPaid,
+            },
+            recentOrders,
+        })
+    );
 });
 
 // @desc    Get vendor's orders
